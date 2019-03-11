@@ -30,9 +30,6 @@ public class Consumer {
 
 	@Autowired
 	CassandraConnector cassandraConnector;
-
-	@Autowired
-	KafkaConsumer kafkaConsumer;
 	
 	@PostConstruct
 	public void create() {
@@ -43,6 +40,7 @@ public class Consumer {
 		for (String topic : topics) {
 			config.put(ConsumerConfig.GROUP_ID_CONFIG, topic);
 			config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+			KafkaConsumer kafkaConsumer= new KafkaConsumer(); 
 			kafkaConsumer
 			.build()
 			.withConfig(config)

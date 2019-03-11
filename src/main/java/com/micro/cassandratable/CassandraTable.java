@@ -57,8 +57,8 @@ public class CassandraTable {
 
 				
 				try {
+					if (null != typeConfigurations) {
 					for(Cassandra.Configuration typeConfiguration:typeConfigurations) {
-					if (null != typeConfiguration) {
 						Cassandra.createKeySpace(cassandraConnector.getSession(), typeConfiguration.getKeySpace(),
 								ReplicationStrategy.SimpleStrategy, 1);
 						
