@@ -8,6 +8,7 @@ import com.micro.common.Constants;
 @Component
 public class CassandraConnector extends com.micro.cassandra.CassandraConnector {
 	CassandraConnector(){
-		super.connect(Constants.CASSANDRA_HOST, Integer.parseInt(Constants.CASSANDRA_PORT));	
+		String[] nodes=Constants.CASSANDRA_HOST.split(",");
+		super.connect(nodes, Integer.parseInt(Constants.CASSANDRA_PORT));	
 	}
 }
