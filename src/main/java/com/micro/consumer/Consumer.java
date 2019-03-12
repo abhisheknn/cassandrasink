@@ -1,6 +1,7 @@
 package com.micro.consumer;
 
 import java.lang.reflect.Type;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -12,6 +13,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.datastax.driver.core.exceptions.InvalidQueryException;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
@@ -19,13 +21,15 @@ import com.micro.cassandra.Cassandra;
 import com.micro.common.Constants;
 import com.micro.connector.CassandraConnector;
 import com.micro.constant.AppConstants.ReplicationStrategy;
-import com.micro.kafkaconsumer.KafkaConsumer;
+import com.micro.kafka.KafkaConsumer;
 
 @Component
 public class Consumer {
 
 	private Gson gson = new Gson();
 	Type mapType = new TypeToken<Map<String, Object>>() {
+	}.getType();
+	Type listType = new TypeToken<List<Map<String, String>>>() {
 	}.getType();
 
 	@Autowired
@@ -35,11 +39,17 @@ public class Consumer {
 	public void create() {
 		Properties config = new Properties();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(Constants.KAFKA_BROKER));
-		
-		String[] topics = Constants.TOPICS.split(",");
-		for (String topic : topics) {
-			config.put(ConsumerConfig.GROUP_ID_CONFIG, topic);
+		//[{"topic":"dockerx.container_details","table":"dockerx.container_details"},{"topic":"dockerx.container_to_mount","table":"dockerx.container_to_mount"},{"topic":"dockerx.network_details","table":"dockerx.network_details"}]
+		List<Map<String, String>>  consumerTopicConfigs = gson.fromJson(Constants.COSUMERTOPICCONFIG,listType);
+		for (Map<String, String> consumerTopicConfig : consumerTopicConfigs) {
+			
+			String tableInfo =consumerTopicConfig.get(Constants.TABLE);
+			String keySpace = tableInfo.split("\\.")[0];
+			String table = tableInfo.split("\\.")[1];	
+			String topic=consumerTopicConfig.get(Constants.TOPIC);
+			config.put(ConsumerConfig.GROUP_ID_CONFIG,tableInfo );
 			config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+			
 			KafkaConsumer kafkaConsumer= new KafkaConsumer(); 
 			kafkaConsumer
 			.build()
@@ -50,17 +60,24 @@ public class Consumer {
 				 records = kafkaConsumer.builder.getConsumer().poll(100); 
 				 for (ConsumerRecord<String, String> record : records) {
 					String key = record.key();
-					String[] tableInfo =kafkaConsumer.builder.getTopic().split("\\.");
-					String keySpace = tableInfo[0];
-					String table = tableInfo[1];
 					String value = record.value();
-					value=value.replace("'", "");
+					value=value.replace("'", "");                  // Cannot insert "'" as part of JSON
 					try {
+						
+						System.out.println(kafkaConsumer.builder.getConsumer().listTopics());
+						System.out.println(topic);
+						System.out.println(keySpace);
+						System.out.println(table);
+						System.out.println(value);
 						Cassandra.insertJSON(cassandraConnector.getSession(), keySpace, table, value);
 						kafkaConsumer.builder.getConsumer().commitSync();
 					} catch (JsonSyntaxException e) {
 						e.printStackTrace();
-				  }catch(Exception e) {e.printStackTrace();}
+				  }catch(InvalidQueryException e) {
+					  e.printStackTrace();
+					  kafkaConsumer.builder.getConsumer().commitSync();
+				  }
+					catch(Exception e) {e.printStackTrace();}
 				}
 			}).consume();
 		}
