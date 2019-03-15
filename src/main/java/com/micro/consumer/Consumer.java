@@ -67,12 +67,6 @@ public class Consumer {
 					String value = record.value();
 					value=value.replace("'", "");                  // Cannot insert "'" as part of JSON
 					try {
-						
-						System.out.println(kafkaConsumer.builder.getConsumer().listTopics());
-						System.out.println(topic);
-						System.out.println(keySpace);
-						System.out.println(table);
-						System.out.println(value);
 						Cassandra.insertJSON(cassandraConnector.getSession(), keySpace, table, value);
 						kafkaConsumer.builder.getConsumer().commitSync();
 					} catch (JsonSyntaxException e) {
