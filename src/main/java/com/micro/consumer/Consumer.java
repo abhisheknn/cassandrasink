@@ -4,6 +4,7 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import javax.annotation.PostConstruct;
 
@@ -35,14 +36,17 @@ public class Consumer {
 	@Autowired
 	CassandraConnector cassandraConnector;
 	
+	
 	@PostConstruct
 	public void create() {
 		Properties config = new Properties();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(Constants.KAFKA_BROKER));
-		//[{"topic":"dockerx.container_details","table":"dockerx.container_details"},{"topic":"dockerx.container_to_mount","table":"dockerx.container_to_mount"},{"topic":"dockerx.network_details","table":"dockerx.network_details"}]
+		//[{"topic":"dockerx.container_details","table_name":"dockerx.container_details"},{"topic":"dockerx.container_to_mount","table_name":"dockerx.container_to_mount"},{"topic":"dockerx.network_details","table_name":"dockerx.network_details"}]
 		List<Map<String, String>>  consumerTopicConfigs = gson.fromJson(Constants.COSUMERTOPICCONFIG,listType);
+		Cassandra.createTable(cassandraConnector.getSession(), Constants.DOCKERX_KEYSPACE,Constants.STREAM_TO_TABLE, Constants.STREAM_TO_TABLE_CONFIG);
 		for (Map<String, String> consumerTopicConfig : consumerTopicConfigs) {
-			
+			consumerTopicConfig.put("uid",""+UUID.randomUUID());
+			Cassandra.insertJSON(cassandraConnector.getSession(), Constants.DOCKERX_KEYSPACE, Constants.STREAM_TO_TABLE, gson.toJson(consumerTopicConfig));
 			String tableInfo =consumerTopicConfig.get(Constants.TABLE);
 			String keySpace = tableInfo.split("\\.")[0];
 			String table = tableInfo.split("\\.")[1];	
